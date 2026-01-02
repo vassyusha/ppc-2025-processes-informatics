@@ -135,13 +135,11 @@ bool RomanovaVDijkstraCrsMPI::PreProcessingImpl() {
 
   min_in_.assign(local_n_, 0.0);
   min_out_.assign(local_n_, 0.0);
-  std::vector<int> vert_sendcounts;
-  std::vector<int> vert_displs;
+  std::vector<int> vert_sendcounts(n, delta_);
+  std::vector<int> vert_displs(n, 0);
 
   if (rank == 0) {
-    vert_sendcounts.assign(n, delta_);
     vert_sendcounts[0] += (extra_ > 0 ? 1 : 0);
-    vert_displs.assign(n, 0);
 
     for (int i = 1; i < n; i++) {
       vert_sendcounts[i] += (i < extra_ ? 1 : 0);
@@ -355,13 +353,11 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  std::vector<int> vert_sendcounts;
-  std::vector<int> vert_displs;
+  std::vector<int> vert_sendcounts(n, delta_);
+  std::vector<int> vert_displs(n, 0);
 
   if (rank == 0) {
-    vert_sendcounts.assign(n, delta_);
     vert_sendcounts[0] += (extra_ > 0 ? 1 : 0);
-    vert_displs.assign(n, 0);
 
     for (int i = 1; i < n; i++) {
       vert_sendcounts[i] += (i < extra_ ? 1 : 0);
