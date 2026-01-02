@@ -1,11 +1,11 @@
 #include "romanova_v_dijkstra_crs/seq/include/ops_seq.hpp"
 
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <iostream>
+#include <limits>
+#include <optional>
 #include <queue>
-#include <tuple>
+#include <utility>
 #include <vector>
 
 #include "romanova_v_dijkstra_crs/common/include/common.hpp"
@@ -28,8 +28,8 @@ bool RomanovaVDijkstraCrsSEQ::ValidationImpl() {
   if (GetInput().source < 0 || GetInput().source >= GetInput().vertices) {
     return false;
   }
-  for (size_t i = 0; i < GetInput().weights.size(); i++) {
-    if (GetInput().weights[i] < 0) {
+  for (double weight : GetInput().weights) {
+    if (weight < 0) {
       return false;
     }
   }
@@ -50,7 +50,7 @@ bool RomanovaVDijkstraCrsSEQ::RunImpl() {
   std::vector<bool> visited(n, false);
 
   std::priority_queue<std::pair<double, int>, std::vector<std::pair<double, int>>, std::greater<>> pq;
-  pq.emplace(std::make_pair(0.0, source));
+  pq.emplace(0.0, source);
 
   while (!pq.empty()) {
     auto [curr_dist, vert] = pq.top();
@@ -69,7 +69,7 @@ bool RomanovaVDijkstraCrsSEQ::RunImpl() {
       }
       if (curr_dist + in_data_.weights[i] < res_weights_[in_data_.edges[i]]) {
         res_weights_[in_data_.edges[i]] = curr_dist + in_data_.weights[i];
-        pq.emplace(std::make_pair(res_weights_[in_data_.edges[i]], in_data_.edges[i]));
+        pq.emplace(res_weights_[in_data_.edges[i]], in_data_.edges[i]);
       }
     }
   }

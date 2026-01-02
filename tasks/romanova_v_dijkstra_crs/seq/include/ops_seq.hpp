@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstddef>
 #include <vector>
 
 #include "romanova_v_dijkstra_crs/common/include/common.hpp"

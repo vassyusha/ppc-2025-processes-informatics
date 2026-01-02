@@ -2,11 +2,9 @@
 
 #include <mpi.h>
 
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <queue>
-#include <tuple>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -78,8 +76,8 @@ bool RomanovaVDijkstraCrsMPI::ValidationImpl() {
     status = status && (GetInput().vertices > 0);
     status = status && (GetInput().offsets.size() - 1 == static_cast<size_t>(GetInput().vertices));
     status = status && (GetInput().source >= 0 && GetInput().source < GetInput().vertices);
-    for (size_t i = 0; i < GetInput().weights.size(); i++) {
-      status = status && (GetInput().weights[i] >= 1e-9);
+    for (double weight : GetInput().weights) {
+      status = status && (weight >= 1e-9);
     }
   }
 
@@ -88,6 +86,7 @@ bool RomanovaVDijkstraCrsMPI::ValidationImpl() {
 }
 
 bool RomanovaVDijkstraCrsMPI::PreProcessingImpl() {
+  // надо разбить на разные функции
   delta_ = 0;
   extra_ = 0;
 
@@ -112,12 +111,8 @@ bool RomanovaVDijkstraCrsMPI::PreProcessingImpl() {
 
     for (size_t i = 0; i < data_.offsets.size() - 1; i++) {
       for (int j = data_.offsets[i]; j < data_.offsets[i + 1]; j++) {
-        if (data_.weights[j] < glob_min_out[i]) {
-          glob_min_out[i] = data_.weights[j];
-        }
-        if (data_.weights[j] < glob_min_in[data_.edges[j]]) {
-          glob_min_in[data_.edges[j]] = data_.weights[j];
-        }
+        glob_min_out[i] = std::min(glob_min_out[i], data_.weights[j]);
+        glob_min_in[i] = std::min(glob_min_in[i], data_.weights[j]);
       }
     }
   }
@@ -126,7 +121,7 @@ bool RomanovaVDijkstraCrsMPI::PreProcessingImpl() {
   MPI_Bcast(&extra_, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
   local_n_ = delta_ + (rank < extra_ ? 1 : 0);
-  st_vert_ = rank * delta_ + (rank < extra_ ? rank : extra_);
+  st_vert_ = (rank * delta_) + (rank < extra_ ? rank : extra_);
   en_vert_ = st_vert_ + local_n_;
 
   local_d_.assign(local_n_, std::numeric_limits<double>::infinity());
@@ -179,6 +174,7 @@ bool RomanovaVDijkstraCrsMPI::PreProcessingImpl() {
 }
 
 bool RomanovaVDijkstraCrsMPI::RunImpl() {
+  // это счастье тоже разбить на разные функции
   int rank = 0;
   int n = 0;
 
@@ -194,10 +190,10 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
 
   while (!global_stop) {
     MPI_Status status;
-    int flag;
+    int flag = 0;
     MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &flag, &status);
 
-    while (flag) {
+    while (flag != 0) {
       double new_dist = 0.0;
       int glob_v = 0;
       MPI_Recv(&new_dist, 1, MPI_DOUBLE, status.MPI_SOURCE, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -223,8 +219,8 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
       local_m = qd_.top().first;
     }
 
-    double global_l;
-    double global_m;
+    double global_l = NAN;
+    double global_m = NAN;
     MPI_Allreduce(&local_l, &global_l, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
     MPI_Allreduce(&local_m, &global_m, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
 
@@ -246,20 +242,21 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
       RemoveFromQueues(v);
     }
 
-    std::vector<MPI_Request> send_requests;
+    std::vector<MPI_Request> dist_requests;
+    std::vector<MPI_Request> vertex_requests;
 
     for (int u : local_r) {
-      size_t start = static_cast<size_t>(data_.offsets[u + st_vert_]);
-      size_t end = static_cast<size_t>(data_.offsets[u + st_vert_ + 1]);
+      int start = data_.offsets[u + st_vert_];
+      int end = data_.offsets[u + st_vert_ + 1];
 
-      for (size_t j = start; j < end; j++) {
+      for (int j = start; j < end; j++) {
         int glob_v = data_.edges[j];
         double weight = data_.weights[j];
 
         double new_dist = local_d_[u] + weight;
 
         int owner = (glob_v < extra_ * (delta_ + 1) ? glob_v / (delta_ + 1)
-                                                    : extra_ + (glob_v - (delta_ + 1) * extra_) / delta_);
+                                                    : extra_ + ((glob_v - (delta_ + 1) * extra_) / delta_));
 
         if (owner == rank) {
           if (new_dist < local_d_[glob_v - st_vert_]) {
@@ -267,17 +264,18 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
             UpdateQueues(glob_v - st_vert_);
           }
         } else {
-          MPI_Request req1, req2;
+          MPI_Request req1 = MPI_REQUEST_NULL;
+          MPI_Request req2 = MPI_REQUEST_NULL;
           MPI_Isend(&new_dist, 1, MPI_DOUBLE, owner, 2, MPI_COMM_WORLD, &req1);
           MPI_Isend(&glob_v, 1, MPI_INT, owner, 3, MPI_COMM_WORLD, &req2);
-          send_requests.push_back(req1);
-          send_requests.push_back(req2);
+          dist_requests.push_back(req1);
+          vertex_requests.push_back(req2);
         }
       }
 
       MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &flag, &status);
 
-      while (flag) {
+      while (flag != 0) {
         double new_dist = 0.0;
         int glob_v = 0;
         MPI_Recv(&new_dist, 1, MPI_DOUBLE, status.MPI_SOURCE, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -292,8 +290,11 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
       }
     }
 
-    if (!send_requests.empty()) {
-      MPI_Waitall(static_cast<int>(send_requests.size()), send_requests.data(), MPI_STATUSES_IGNORE);
+    if (!dist_requests.empty()) {
+      MPI_Waitall(static_cast<int>(dist__requests.size()), dist_requests.data(), MPI_STATUSES_IGNORE);
+    }
+    if (!vertex_requests.empty()) {
+      MPI_Waitall(static_cast<int>(vertex_requests.size()), vertex_requests.data(), MPI_STATUSES_IGNORE);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -306,10 +307,10 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
     MPI_Status temp_status;
     MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &has_pending_msgs, &temp_status);
 
-    int global_has_pending;
+    int global_has_pending = 0;
     MPI_Allreduce(&has_pending_msgs, &global_has_pending, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 
-    if (global_has_pending && local_has_work == 0) {
+    if (global_has_pending != 0 && local_has_work == 0) {
       while (has_pending_msgs) {
         double new_dist = 0.0;
         int glob_v = 0;
@@ -325,16 +326,16 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
         MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &has_pending_msgs, &temp_status);
       }
     }
-    int global_has_work;
+    int global_has_work = 0;
     MPI_Allreduce(&local_has_work, &global_has_work, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
     global_stop = (global_has_work == 0 && global_has_pending == 0);
   }
 
   MPI_Status final_status;
-  int final_flag;
+  int final_flag = 0;
 
   MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &final_flag, &final_status);
-  while (final_flag) {
+  while (final_flag != 0) {
     double new_dist = 0.0;
     int glob_v = 0;
     MPI_Recv(&new_dist, 1, MPI_DOUBLE, final_status.MPI_SOURCE, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);

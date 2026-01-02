@@ -1,9 +1,9 @@
 #pragma once
 
-#include <cstddef>
+#include <functional>
 #include <queue>
 #include <string>
-#include <tuple>
+#include <utility>
 #include <vector>
 
 #include "task/include/task.hpp"
@@ -15,8 +15,8 @@ struct Graph {
   std::vector<int> edges;
   std::vector<int> offsets;
 
-  int vertices;
-  int source;
+  int vertices{};
+  int source{};
 };
 
 using MinHeap = std::priority_queue<std::pair<double, int>, std::vector<std::pair<double, int>>, std::greater<>>;
