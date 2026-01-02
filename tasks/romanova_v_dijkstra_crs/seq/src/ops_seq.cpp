@@ -19,7 +19,7 @@ RomanovaVDijkstraCrsSEQ::RomanovaVDijkstraCrsSEQ(const InType &in) {
 }
 
 bool RomanovaVDijkstraCrsSEQ::ValidationImpl() {
-  std::cout << GetInput().vertices << "\n";
+  // std::cout << GetInput().vertices << "\n";
 
   if (GetInput().vertices <= 0) {
     return false;
@@ -59,7 +59,7 @@ bool RomanovaVDijkstraCrsSEQ::RunImpl() {
     auto [curr_dist, vert] = pq.top();
     pq.pop();
 
-    std::cout << curr_dist << " " << vert << "\n";
+    // std::cout << curr_dist << " " << vert << "\n";
 
     if (visited[vert]) {
       continue;
@@ -68,17 +68,23 @@ bool RomanovaVDijkstraCrsSEQ::RunImpl() {
 
     int st = in_data_.offsets[vert];
     int end = in_data_.offsets[vert + 1];
-    std::cout << "offsets: " << st << " " << end << "\n";
+    // std::cout << "offsets: " << st << " " << end << "\n";
     for (int i = st; i < end; i++) {
       if (visited[in_data_.edges[i]]) {
         continue;
       }
-      std::cout << i << ": " << curr_dist << " " << in_data_.weights[i] << " " << res_weights_[in_data_.edges[i]]
-                << "\n";
+      // std::cout << i << ": " << curr_dist << " " << in_data_.weights[i] << " " << res_weights_[in_data_.edges[i]]
+      //          << "\n";
       if (curr_dist + in_data_.weights[i] < res_weights_[in_data_.edges[i]]) {
         res_weights_[in_data_.edges[i]] = curr_dist + in_data_.weights[i];
         pq.emplace(std::make_pair(res_weights_[in_data_.edges[i]], in_data_.edges[i]));
       }
+    }
+  }
+
+  for (int i = 0; i < in_data_.vertices; i++) {
+    if (res_weights_[i] == std::numeric_limits<double>::infinity()) {
+      res_weights_[i] = -1;
     }
   }
 

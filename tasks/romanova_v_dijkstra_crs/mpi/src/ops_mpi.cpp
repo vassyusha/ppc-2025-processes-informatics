@@ -256,6 +256,7 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
     for (int u : local_r) {
       size_t start = static_cast<size_t>(data_.offsets[u + st_vert_]);
       size_t end = static_cast<size_t>(data_.offsets[u + st_vert_ + 1]);
+
       for (size_t j = start; j < end; j++) {
         int glob_v = data_.edges[j];
         double weight = data_.weights[j];
@@ -264,6 +265,7 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
 
         int owner = (glob_v < extra_ * (delta_ + 1) ? glob_v / (delta_ + 1)
                                                     : extra_ + (glob_v - (delta_ + 1) * extra_) / delta_);
+
         if (owner == rank) {
           if (new_dist < local_d_[glob_v - st_vert_]) {
             local_d_[glob_v - st_vert_] = new_dist;
@@ -298,14 +300,39 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
     if (!send_requests.empty()) {
       MPI_Waitall(static_cast<int>(send_requests.size()), send_requests.data(), MPI_STATUSES_IGNORE);
     }
-    CleanUpQueues();
+
     MPI_Barrier(MPI_COMM_WORLD);
 
-    int local_has_work = (!qd_.empty()) ? 1 : 0;
+    CleanUpQueues();
+
+    int local_has_work = (!qd_.empty() || !qin_.empty() || !qout_.empty()) ? 1 : 0;
+
+    int has_pending_msgs = 0;
+    MPI_Status temp_status;
+    MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &has_pending_msgs, &temp_status);
+
+    int global_has_pending;
+    MPI_Allreduce(&has_pending_msgs, &global_has_pending, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+
+    if (global_has_pending && local_has_work == 0) {
+      while (has_pending_msgs) {
+        double new_dist = 0.0;
+        int glob_v = 0;
+        MPI_Recv(&new_dist, 1, MPI_DOUBLE, temp_status.MPI_SOURCE, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&glob_v, 1, MPI_INT, temp_status.MPI_SOURCE, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+        if (st_vert_ <= glob_v && glob_v < en_vert_ && new_dist < local_d_[glob_v - st_vert_]) {
+          local_d_[glob_v - st_vert_] = new_dist;
+          UpdateQueues(glob_v - st_vert_);
+          local_has_work = 1;
+        }
+
+        MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &has_pending_msgs, &temp_status);
+      }
+    }
     int global_has_work;
     MPI_Allreduce(&local_has_work, &global_has_work, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
-
-    global_stop = (global_has_work == 0);
+    global_stop = (global_has_work == 0 && global_has_pending == 0);
   }
 
   MPI_Status final_status;
@@ -321,6 +348,11 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
     if (st_vert_ <= glob_v && glob_v < en_vert_) {
       if (new_dist < local_d_[glob_v - st_vert_]) {
         local_d_[glob_v - st_vert_] = new_dist;
+        std::cout << rank << "onFinal: ";
+        for (int i = 0; i < local_n_; i++) {
+          std::cout << local_d_[i] << " ";
+        }
+        std::cout << "\n";
       }
     }
 

@@ -14,28 +14,33 @@ namespace romanova_v_dijkstra_crs {
 
 class RomanovaVDijkstraCrsPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType, OutType> {
   void SetUp() override {
-    size_t n = 200;
-    std::vector<std::vector<double>> a(n, std::vector<double>(n, 0.0));
+    input_data_ = Graph();
+    input_data_.offsets = std::vector<int>(kVert_ + 1);
+    input_data_.source = 0;
 
-    for (size_t i = 0; i < n; i++) {
-      for (size_t j = 0; j < n; j++) {
-        if (i == j) {
-          a[i][j] = 10.01;
+    for (int v = 0; v < kVert_; v++) {
+      for (int edg = 1; edg < 101; edg++) {
+        int j = (v + edg * 89) % kVert_;
+        if (v == j) {
+          j = (j + 97) % kVert_;
         }
-        if (j == i - 1 || j == i + 1) {
-          a[i][j] = 5.0;
-        }
+        input_data_.edges.push_back(j);
+        double weight = static_cast<double>(1 + ((v + j + edg) % 37));
+        input_data_.weights.push_back(weight);
+        input_data_.offsets[v + 1]++;
       }
     }
 
-    std::vector<double> x(n, -1000.0);
-    std::vector<double> b(n, 20.01);
-    b[0] = b[n - 1] = 15.01;
-    // size_t iterations = 100000;
+    for (int i = 0; i < kVert_; ++i) {
+      input_data_.offsets[i + 1] += input_data_.offsets[i];
+    }
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    if (output_data.size() != exp_answer_.size()) {
+    if (output_data.size() != kVert_) {
+      return false;
+    }
+    if (abs(output_data[0]) > 1e-9) {
       return false;
     }
 
@@ -48,7 +53,7 @@ class RomanovaVDijkstraCrsPerfTestProcesses : public ppc::util::BaseRunPerfTests
 
  private:
   InType input_data_;
-  OutType exp_answer_;
+  size_t kVert_ = 100000;
 };
 
 TEST_P(RomanovaVDijkstraCrsPerfTestProcesses, RunPerfModes) {

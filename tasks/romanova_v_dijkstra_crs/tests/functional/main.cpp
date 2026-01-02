@@ -56,18 +56,9 @@ class RomanovaVDijkstraCrsFuncTestsProcesses : public ppc::util::BaseRunFuncTest
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    std::cout << output_data.size() << "size\n";
-    if (output_data.size() != exp_answer_.size()) {
-      return false;
-    }
-    std::cout << "its check\n";
-    for (int i = 0; i < exp_answer_.size(); i++) {
-      std::cout << output_data[i] << " ";
-    }
-    std::cout << "\n";
     for (int i = 0; i < exp_answer_.size(); i++) {
       if (abs(output_data[i] - exp_answer_[i]) > 1e-9) {
-        std::cout << "false: " << output_data[i] << " " << exp_answer_[i] << "\n";
+        return false;
       }
     }
 
