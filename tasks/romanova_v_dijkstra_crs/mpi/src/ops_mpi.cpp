@@ -291,7 +291,7 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
     }
 
     if (!dist_requests.empty()) {
-      MPI_Waitall(static_cast<int>(dist__requests.size()), dist_requests.data(), MPI_STATUSES_IGNORE);
+      MPI_Waitall(static_cast<int>(dist_requests.size()), dist_requests.data(), MPI_STATUSES_IGNORE);
     }
     if (!vertex_requests.empty()) {
       MPI_Waitall(static_cast<int>(vertex_requests.size()), vertex_requests.data(), MPI_STATUSES_IGNORE);
