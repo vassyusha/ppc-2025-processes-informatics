@@ -111,7 +111,7 @@ bool RomanovaVDijkstraCrsMPI::PreProcessingImpl() {
     glob_min_out = std::vector<double>(data_.vertices, std::numeric_limits<double>::infinity());
 
     for (size_t i = 0; i < data_.offsets.size() - 1; i++) {
-      for (size_t j = data_.offsets[i]; j < data_.offsets[i + 1]; j++) {
+      for (int j = data_.offsets[i]; j < data_.offsets[i + 1]; j++) {
         if (data_.weights[j] < glob_min_out[i]) {
           glob_min_out[i] = data_.weights[j];
         }
