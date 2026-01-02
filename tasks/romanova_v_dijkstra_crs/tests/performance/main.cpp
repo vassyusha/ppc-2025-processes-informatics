@@ -31,8 +31,7 @@ class RomanovaVDijkstraCrsPerfTestProcesses : public ppc::util::BaseRunPerfTests
     std::vector<double> x(n, -1000.0);
     std::vector<double> b(n, 20.01);
     b[0] = b[n - 1] = 15.01;
-    //size_t iterations = 100000;
-
+    // size_t iterations = 100000;
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
@@ -50,7 +49,6 @@ class RomanovaVDijkstraCrsPerfTestProcesses : public ppc::util::BaseRunPerfTests
  private:
   InType input_data_;
   OutType exp_answer_;
-
 };
 
 TEST_P(RomanovaVDijkstraCrsPerfTestProcesses, RunPerfModes) {

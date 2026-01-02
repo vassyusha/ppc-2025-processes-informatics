@@ -23,7 +23,6 @@ class RomanovaVDijkstraCrsSEQ : public BaseTask {
 
   Graph in_data_;
   std::vector<double> res_weights_;
-
 };
 
 }  // namespace romanova_v_dijkstra_crs

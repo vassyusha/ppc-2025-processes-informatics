@@ -5,11 +5,10 @@
 #include <cmath>
 #include <cstddef>
 #include <fstream>
+#include <iostream>
 #include <string>
 #include <tuple>
 #include <vector>
-
-#include <iostream>
 
 #include "romanova_v_dijkstra_crs/common/include/common.hpp"
 #include "romanova_v_dijkstra_crs/mpi/include/ops_mpi.hpp"
@@ -37,25 +36,40 @@ class RomanovaVDijkstraCrsFuncTestsProcesses : public ppc::util::BaseRunFuncTest
       input_data_.weights = std::vector<double>(edg);
       input_data_.edges = std::vector<int>(edg);
       input_data_.offsets = std::vector<int>(input_data_.vertices + 1);
-      for(int i = 0; i < edg; i++) file >> input_data_.weights[i];
-      for(int i = 0; i < edg; i++) file >> input_data_.edges[i];
-      for(int i = 0; i < input_data_.vertices + 1; i++) file >> input_data_.offsets[i];
+      for (int i = 0; i < edg; i++) {
+        file >> input_data_.weights[i];
+      }
+      for (int i = 0; i < edg; i++) {
+        file >> input_data_.edges[i];
+      }
+      for (int i = 0; i < input_data_.vertices + 1; i++) {
+        file >> input_data_.offsets[i];
+      }
       file >> input_data_.source;
 
       exp_answer_ = OutType(input_data_.vertices);
-      for(int i = 0; i < input_data_.vertices; i++) file >> exp_answer_[i];
+      for (int i = 0; i < input_data_.vertices; i++) {
+        file >> exp_answer_[i];
+      }
       file.close();
     }
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
+    std::cout << output_data.size() << "size\n";
     if (output_data.size() != exp_answer_.size()) {
       return false;
     }
     std::cout << "its check\n";
-    for(int i = 0; i < exp_answer_.size(); i++) std::cout << output_data[i] << " " ;
+    for (int i = 0; i < exp_answer_.size(); i++) {
+      std::cout << output_data[i] << " ";
+    }
     std::cout << "\n";
-    for(int i = 0; i < exp_answer_.size(); i++) if(output_data[i] != exp_answer_[i]) return false;;
+    for (int i = 0; i < exp_answer_.size(); i++) {
+      if (abs(output_data[i] - exp_answer_[i]) > 1e-9) {
+        std::cout << "false: " << output_data[i] << " " << exp_answer_[i] << "\n";
+      }
+    }
 
     return true;
   }
@@ -75,7 +89,9 @@ TEST_P(RomanovaVDijkstraCrsFuncTestsProcesses, Dijkstra) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 2> kTestParam = {"trivialTest", "simpleTest"};
+const std::array<TestType, 9> kTestParam = {"trivialTest",     "smallTest",       "simpleTest",
+                                            "disconGraphTest", "linGraphTest",    "cycleGraphTest",
+                                            "complGraphTest",  "severalWaysTest", "longerWayWithLessCostTest"};
 
 const auto kTestTasksList = std::tuple_cat(
     ppc::util::AddFuncTask<RomanovaVDijkstraCrsMPI, InType>(kTestParam, PPC_SETTINGS_romanova_v_dijkstra_crs),

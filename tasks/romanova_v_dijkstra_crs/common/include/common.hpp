@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <queue>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -9,14 +10,16 @@
 
 namespace romanova_v_dijkstra_crs {
 
-struct Graph{
-    std::vector<double> weights;
-    std::vector<int> edges;
-    std::vector<int> offsets;
+struct Graph {
+  std::vector<double> weights;
+  std::vector<int> edges;
+  std::vector<int> offsets;
 
-    int vertices;
-    int source;
+  int vertices;
+  int source;
 };
+
+using MinHeap = std::priority_queue<std::pair<double, int>, std::vector<std::pair<double, int>>, std::greater<>>;
 
 using InType = Graph;
 using OutType = std::vector<double>;
