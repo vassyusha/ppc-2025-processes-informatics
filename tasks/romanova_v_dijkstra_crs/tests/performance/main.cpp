@@ -39,7 +39,7 @@ class RomanovaVDijkstraCrsPerfTestProcesses : public ppc::util::BaseRunPerfTests
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    if (output_data.size() != kVert_) {
+    if (output_data.size() != static_cast<size_t>(kVert_)) {
       return false;
     }
 
