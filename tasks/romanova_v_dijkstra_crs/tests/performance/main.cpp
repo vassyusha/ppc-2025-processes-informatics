@@ -56,7 +56,7 @@ class RomanovaVDijkstraCrsPerfTestProcesses : public ppc::util::BaseRunPerfTests
 
  private:
   InType input_data_;
-  size_t kVert_{};
+  int kVert_{};
 };
 
 TEST_P(RomanovaVDijkstraCrsPerfTestProcesses, Dijkstra) {
