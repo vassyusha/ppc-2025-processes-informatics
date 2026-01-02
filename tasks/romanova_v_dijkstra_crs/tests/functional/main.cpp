@@ -56,7 +56,7 @@ class RomanovaVDijkstraCrsFuncTestsProcesses : public ppc::util::BaseRunFuncTest
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    for (int i = 0; i < exp_answer_.size(); i++) {
+    for (size_t i = 0; i < exp_answer_.size(); i++) {
       if (abs(output_data[i] - exp_answer_[i]) > 1e-9) {
         return false;
       }
