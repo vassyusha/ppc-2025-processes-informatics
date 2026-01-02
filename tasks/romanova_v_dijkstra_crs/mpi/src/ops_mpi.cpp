@@ -84,7 +84,6 @@ bool RomanovaVDijkstraCrsMPI::ValidationImpl() {
   }
 
   MPI_Bcast(&status, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);
-
   return status;
 }
 
@@ -136,7 +135,6 @@ bool RomanovaVDijkstraCrsMPI::PreProcessingImpl() {
 
   min_in_.assign(local_n_, 0.0);
   min_out_.assign(local_n_, 0.0);
-
   std::vector<int> vert_sendcounts;
   std::vector<int> vert_displs;
 
@@ -179,7 +177,6 @@ bool RomanovaVDijkstraCrsMPI::PreProcessingImpl() {
   MPI_Bcast(data_.edges.data(), static_cast<int>(data_.edges.size()), MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast(data_.weights.data(), static_cast<int>(data_.weights.size()), MPI_DOUBLE, 0, MPI_COMM_WORLD);
   MPI_Bcast(data_.offsets.data(), static_cast<int>(data_.offsets.size()), MPI_INT, 0, MPI_COMM_WORLD);
-
   return true;
 }
 
@@ -348,11 +345,8 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
     if (st_vert_ <= glob_v && glob_v < en_vert_) {
       if (new_dist < local_d_[glob_v - st_vert_]) {
         local_d_[glob_v - st_vert_] = new_dist;
-        std::cout << rank << "onFinal: ";
         for (int i = 0; i < local_n_; i++) {
-          std::cout << local_d_[i] << " ";
         }
-        std::cout << "\n";
       }
     }
 

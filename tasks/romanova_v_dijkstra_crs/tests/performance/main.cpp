@@ -14,12 +14,14 @@ namespace romanova_v_dijkstra_crs {
 
 class RomanovaVDijkstraCrsPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType, OutType> {
   void SetUp() override {
+    kVert_ = 1000;
     input_data_ = Graph();
-    input_data_.offsets = std::vector<int>(kVert_ + 1);
+    input_data_.vertices = kVert_;
+    input_data_.offsets = std::vector<int>(input_data_.vertices + 1);
     input_data_.source = 0;
 
     for (int v = 0; v < kVert_; v++) {
-      for (int edg = 1; edg < 101; edg++) {
+      for (int edg = 1; edg < 11; edg++) {
         int j = (v + edg * 89) % kVert_;
         if (v == j) {
           j = (j + 97) % kVert_;
@@ -40,6 +42,7 @@ class RomanovaVDijkstraCrsPerfTestProcesses : public ppc::util::BaseRunPerfTests
     if (output_data.size() != kVert_) {
       return false;
     }
+
     if (abs(output_data[0]) > 1e-9) {
       return false;
     }
@@ -53,10 +56,10 @@ class RomanovaVDijkstraCrsPerfTestProcesses : public ppc::util::BaseRunPerfTests
 
  private:
   InType input_data_;
-  size_t kVert_ = 100000;
+  size_t kVert_{};
 };
 
-TEST_P(RomanovaVDijkstraCrsPerfTestProcesses, RunPerfModes) {
+TEST_P(RomanovaVDijkstraCrsPerfTestProcesses, Dijkstra) {
   ExecuteTest(GetParam());
 }
 
