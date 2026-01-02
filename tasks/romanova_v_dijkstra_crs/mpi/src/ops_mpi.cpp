@@ -76,7 +76,7 @@ bool RomanovaVDijkstraCrsMPI::ValidationImpl() {
 
   if (rank == 0) {
     status = status && (GetInput().vertices > 0);
-    status = status && (GetInput().offsets.size() - 1 == GetInput().vertices);
+    status = status && (GetInput().offsets.size() - 1 == static_cast<size_t>(GetInput().vertices));
     status = status && (GetInput().source >= 0 && GetInput().source < GetInput().vertices);
     for (size_t i = 0; i < GetInput().weights.size(); i++) {
       status = status && (GetInput().weights[i] >= 1e-9);

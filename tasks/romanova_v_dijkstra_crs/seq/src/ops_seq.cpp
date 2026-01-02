@@ -22,7 +22,7 @@ bool RomanovaVDijkstraCrsSEQ::ValidationImpl() {
   if (GetInput().vertices <= 0) {
     return false;
   }
-  if (GetInput().offsets.size() - 1 != GetInput().vertices) {
+  if (GetInput().offsets.size() - 1 != static_cast<size_t>(GetInput().vertices)) {
     return false;
   }
   if (GetInput().source < 0 || GetInput().source >= GetInput().vertices) {
