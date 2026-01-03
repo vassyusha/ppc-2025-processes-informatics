@@ -71,11 +71,6 @@ void RomanovaVDijkstraCrsMPI::RecieveData(int &flag, MPI_Status &status) {
       int vertex;
     } recieved_data{};
 
-    // double new_dist = 0.0;
-    // int glob_v = 0;
-    // MPI_Recv(&new_dist, 1, MPI_DOUBLE, status.MPI_SOURCE, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    // MPI_Recv(&glob_v, 1, MPI_INT, status.MPI_SOURCE, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
     MPI_Recv(&recieved_data, sizeof(SendData), MPI_BYTE, status.MPI_SOURCE, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     double new_dist = recieved_data.distance;
     int glob_v = recieved_data.vertex;
@@ -111,7 +106,7 @@ void RomanovaVDijkstraCrsMPI::MakeLocalR(std::vector<int> &local_r, double globa
   }
 }
 
-void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, /*std::vector<MPI_Request> &send_requests,*/
+void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, 
                                             int &flag, MPI_Status &status) {
   int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -120,6 +115,7 @@ void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, /*std::ve
     int start = data_.offsets[u + st_vert_];
     int end = data_.offsets[u + st_vert_ + 1];
 
+    // NOLINTBEGIN(clang-analyzer-optin.mpi.MPI-Checker)
     for (int j = start; j < end; j++) {
       int glob_v = data_.edges[j];
       double weight = data_.weights[j];
@@ -145,6 +141,7 @@ void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, /*std::ve
         send_requests.push_back(req);
       }
     }
+    // NOLINTEND(clang-analyzer-optin.mpi.MPI-Checker)
     RecieveData(flag, status);
   }
   WaitRequests(send_requests);
