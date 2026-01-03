@@ -207,20 +207,48 @@ void RomanovaVDijkstraCrsMPI::WaitRequests(std::vector<MPI_Request> &send_reques
 }
 
 void RomanovaVDijkstraCrsMPI::MakeLocalR(std::vector<int> &local_r, double global_l, double global_m) {
+  const double epsilon = 1e-9;
+
+  // ДИАГНОСТИКА: проверяем вершины в очередях
+  std::vector<int> queued_vertices;
+  if (!qd_.empty()) {
+    // Берем несколько вершин из очереди для анализа
+    std::vector<std::pair<double, int>> temp;
+    MinHeap qd_copy = qd_;
+    for (int i = 0; i < std::min(3, (int)qd_copy.size()); i++) {
+      temp.push_back(qd_copy.top());
+      qd_copy.pop();
+    }
+
+    for (const auto &item : temp) {
+      int v = item.second;
+      double d = local_d_[v];
+      double min_in_val = min_in_[v];
+
+      bool cond1 = (d <= global_l + epsilon);
+      bool cond2 = ((d - min_in_val) <= global_m + epsilon);
+
+      if (!cond1 && !cond2) {
+        std::cout << "DEBUG Vertex " << v << ": d=" << d << ", min_in=" << min_in_val << ", global_l=" << global_l
+                  << ", global_m=" << global_m << ", cond1=" << cond1 << " (d <= L: " << d << " <= " << global_l << ")"
+                  << ", cond2=" << cond2 << " (d-min_in <= M: " << (d - min_in_val) << " <= " << global_m << ")"
+                  << ", in_s=" << in_s_[v] << std::endl;
+      }
+    }
+  }
+
   for (int i = 0; i < local_n_; i++) {
-    if (!visited_[i] && !in_s_[i]) {
-      bool cond1 = (local_d_[i] <= global_l);
-      bool cond2 = (local_d_[i] - min_in_[i] <= global_m);
+    if (!in_s_[i]) {
+      bool cond1 = (local_d_[i] <= global_l + epsilon);
+      bool cond2 = ((local_d_[i] - min_in_[i]) <= global_m + epsilon);
 
       if (cond1 || cond2) {
         local_r.push_back(i);
         in_s_[i] = true;
-        visited_[i] = true;
       }
     }
   }
 }
-
 void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, int &flag, MPI_Status &status) {
   int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
