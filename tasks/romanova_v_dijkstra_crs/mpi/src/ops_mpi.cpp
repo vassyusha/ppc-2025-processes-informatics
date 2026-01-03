@@ -375,9 +375,7 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
       RemoveFromQueues(v);
     }
 
-    // std::vector<MPI_Request> send_requests;
-
-    ProcessLocalR(local_r, /*send_requests,*/ flag, status);
+    ProcessLocalR(local_r, flag, status);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
