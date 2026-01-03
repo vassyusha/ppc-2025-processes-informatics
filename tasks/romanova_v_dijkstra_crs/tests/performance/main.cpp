@@ -13,32 +13,34 @@ namespace romanova_v_dijkstra_crs {
 
 class RomanovaVDijkstraCrsPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType, OutType> {
   void SetUp() override {
-    kVert_ = 1000;
-    input_data_ = Graph();
-    input_data_.vertices = kVert_;
-    input_data_.offsets = std::vector<int>(input_data_.vertices + 1);
-    input_data_.source = 0;
-
-    for (int vert = 0; vert < kVert_; vert++) {
-      for (int edg = 1; edg < 101; edg++) {
-        int j = (vert + edg * 89) % kVert_;
-        if (vert == j) {
-          j = (j + 97) % kVert_;
-        }
-        input_data_.edges.push_back(j);
-        auto weight = static_cast<double>(1 + ((vert + j + edg) % 37));
-        input_data_.weights.push_back(weight);
-        input_data_.offsets[vert + 1]++;
+    TestType params = "perf1000000";
+    std::string abs_path = ppc::util::GetAbsoluteTaskPath(PPC_ID_romanova_v_dijkstra_crs, params);
+    std::ifstream file(abs_path + ".txt");
+    if (file.is_open()) {
+      Graph gr;
+      int edg = 0;
+      file >> gr.vertices >> edg;
+      gr.weights = std::vector<double>(edg);
+      gr.edges = std::vector<int>(edg);
+      gr.offsets = std::vector<int>(gr.vertices + 1);
+      for (int i = 0; i < edg; i++) {
+        file >> gr.weights[i];
       }
-    }
-
-    for (int i = 0; i < kVert_; ++i) {
-      input_data_.offsets[i + 1] += input_data_.offsets[i];
+      std::cout << "\nedg: ";
+      for (int i = 0; i < edg; i++) {
+        file >> gr.edges[i];
+      }
+      for (int i = 0; i < gr.vertices + 1; i++) {
+        file >> gr.offsets[i];
+      }
+      file >> gr.source;
+      file.close();
+      input_data_ = gr;
     }
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    if (output_data.size() != static_cast<size_t>(kVert_)) {
+    if (output_data.size() != static_cast<size_t>(1000000)) {
       return false;
     }
 
@@ -55,7 +57,6 @@ class RomanovaVDijkstraCrsPerfTestProcesses : public ppc::util::BaseRunPerfTests
 
  private:
   InType input_data_;
-  int kVert_{};
 };
 
 TEST_P(RomanovaVDijkstraCrsPerfTestProcesses, Dijkstra) {
