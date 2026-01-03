@@ -1,5 +1,6 @@
 #include "romanova_v_dijkstra_crs/seq/include/ops_seq.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <functional>
@@ -31,10 +32,8 @@ bool RomanovaVDijkstraCrsSEQ::ValidationImpl() {
 
   bool all_weights_valid =
       std::all_of(GetInput().weights.begin(), GetInput().weights.end(), [](double w) { return w >= 1e-9; });
-  if (!all_weights_valid) {
-    return false;
-  }
-  return true;
+
+  return all_weights_valid;
 }
 
 bool RomanovaVDijkstraCrsSEQ::PreProcessingImpl() {

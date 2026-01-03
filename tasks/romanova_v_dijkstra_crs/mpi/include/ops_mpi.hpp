@@ -32,17 +32,18 @@ class RomanovaVDijkstraCrsMPI : public BaseTask {
   void SetupLocalVertexRange(int rank);
   void InitializeLocalArrays();
   void SetupMinInOutArrays(int rank, int n);
-  std::vector<int> CalculateVertexSendCounts(int rank, int n);
-  std::vector<int> CalculateVertexDisplacements(int rank, int n, const std::vector<int> &vert_sendcounts);
+  std::vector<int> CalculateVertexSendCounts(int rank, int n) const;
+  static std::vector<int> CalculateVertexDisplacements(int rank, int n, const std::vector<int> &vert_sendcounts);
   void InitializeQueues();
   void BroadcastGraphData(int rank);
 
+  void InitializeSource();
   void RecieveData(int &flag, MPI_Status &status);
+  static void WaitRequests(std::vector<MPI_Request> &send_requests);
   void MakeLocalR(std::vector<int> &local_r, double global_l, double global_m);
-  void ProcessLocalR(std::vector<int> &local_r, std::vector<MPI_Request> &dist_requests,
-                     std::vector<MPI_Request> &vertex_requests, int &flag, MPI_Status &status);
+  void ProcessLocalR(std::vector<int> &local_r, std::vector<MPI_Request> &send_requests, int &flag, MPI_Status &status);
   bool IsGlobalStop();
-  double GetGlobalMin(MinHeap &q);
+  static double GetGlobalMin(MinHeap &q);
 
   Graph data_;
   std::vector<double> res_weights_;

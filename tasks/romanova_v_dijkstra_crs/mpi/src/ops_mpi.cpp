@@ -2,6 +2,7 @@
 
 #include <mpi.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -65,11 +66,19 @@ void RomanovaVDijkstraCrsMPI::RecieveData(int &flag, MPI_Status &status) {
   MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &flag, &status);
 
   while (flag != 0) {
-    double new_dist = 0.0;
-    int glob_v = 0;
-    MPI_Recv(&new_dist, 1, MPI_DOUBLE, status.MPI_SOURCE, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Recv(&glob_v, 1, MPI_INT, status.MPI_SOURCE, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    struct SendData {
+      double distance;
+      int vertex;
+    } recieved_data;
 
+    // double new_dist = 0.0;
+    // int glob_v = 0;
+    // MPI_Recv(&new_dist, 1, MPI_DOUBLE, status.MPI_SOURCE, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    // MPI_Recv(&glob_v, 1, MPI_INT, status.MPI_SOURCE, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    MPI_Recv(&recieved_data, sizeof(SendData), MPI_BYTE, status.MPI_SOURCE, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    double new_dist = recieved_data.distance;
+    int glob_v = recieved_data.vertex;
     if (st_vert_ <= glob_v && glob_v < en_vert_) {
       if (new_dist < local_d_[glob_v - st_vert_]) {
         local_d_[glob_v - st_vert_] = new_dist;
@@ -78,6 +87,12 @@ void RomanovaVDijkstraCrsMPI::RecieveData(int &flag, MPI_Status &status) {
     }
 
     MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &flag, &status);
+  }
+}
+
+void RomanovaVDijkstraCrsMPI::WaitRequests(std::vector<MPI_Request> &send_requests) {
+  if (!send_requests.empty()) {
+    MPI_Waitall(static_cast<int>(send_requests.size()), send_requests.data(), MPI_STATUSES_IGNORE);
   }
 }
 
@@ -96,8 +111,8 @@ void RomanovaVDijkstraCrsMPI::MakeLocalR(std::vector<int> &local_r, double globa
   }
 }
 
-void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, std::vector<MPI_Request> &dist_requests,
-                                            std::vector<MPI_Request> &vertex_requests, int &flag, MPI_Status &status) {
+void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, std::vector<MPI_Request> &send_requests,
+                                            int &flag, MPI_Status &status) {
   int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   for (int u : local_r) {
@@ -119,12 +134,14 @@ void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, std::vect
           UpdateQueues(glob_v - st_vert_);
         }
       } else {
-        MPI_Request req1 = MPI_REQUEST_NULL;
-        MPI_Request req2 = MPI_REQUEST_NULL;
-        MPI_Isend(&new_dist, 1, MPI_DOUBLE, owner, 2, MPI_COMM_WORLD, &req1);
-        MPI_Isend(&glob_v, 1, MPI_INT, owner, 3, MPI_COMM_WORLD, &req2);
-        dist_requests.push_back(req1);
-        vertex_requests.push_back(req2);
+        struct SendData {
+          double distance;
+          int vertex;
+        } send_data{new_dist, glob_v};
+
+        MPI_Request req;
+        MPI_Isend(&send_data, sizeof(SendData), MPI_BYTE, owner, 2, MPI_COMM_WORLD, &req);
+        send_requests.push_back(req);
       }
     }
     RecieveData(flag, status);
@@ -221,7 +238,7 @@ void RomanovaVDijkstraCrsMPI::SetupMinInOutArrays(int rank, int n) {
                MPI_DOUBLE, 0, MPI_COMM_WORLD);
 }
 
-std::vector<int> RomanovaVDijkstraCrsMPI::CalculateVertexSendCounts(int rank, int n) {
+std::vector<int> RomanovaVDijkstraCrsMPI::CalculateVertexSendCounts(int rank, int n) const {
   std::vector<int> vert_sendcounts(n, delta_);
 
   if (rank == 0) {
@@ -322,6 +339,13 @@ bool RomanovaVDijkstraCrsMPI::PreProcessingImpl() {
   return true;
 }
 
+void RomanovaVDijkstraCrsMPI::InitializeSource() {
+  if (st_vert_ <= data_.source && data_.source < en_vert_) {
+    local_d_[data_.source - st_vert_] = 0.0;
+    UpdateQueues(data_.source - st_vert_);
+  }
+}
+
 bool RomanovaVDijkstraCrsMPI::RunImpl() {
   int rank = 0;
   int n = 0;
@@ -329,10 +353,7 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n);
 
-  if (st_vert_ <= data_.source && data_.source < en_vert_) {
-    local_d_[data_.source - st_vert_] = 0.0;
-    UpdateQueues(data_.source - st_vert_);
-  }
+  InitializeSource();
 
   bool global_stop = false;
 
@@ -352,17 +373,11 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
       RemoveFromQueues(v);
     }
 
-    std::vector<MPI_Request> dist_requests;
-    std::vector<MPI_Request> vertex_requests;
+    std::vector<MPI_Request> send_requests;
 
-    ProcessLocalR(local_r, dist_requests, vertex_requests, flag, status);
+    ProcessLocalR(local_r, send_requests, flag, status);
 
-    if (!dist_requests.empty()) {
-      MPI_Waitall(static_cast<int>(dist_requests.size()), dist_requests.data(), MPI_STATUSES_IGNORE);
-    }
-    if (!vertex_requests.empty()) {
-      MPI_Waitall(static_cast<int>(vertex_requests.size()), vertex_requests.data(), MPI_STATUSES_IGNORE);
-    }
+    WaitRequests(send_requests);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
@@ -374,7 +389,7 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
   MPI_Status final_status;
   int final_flag = 0;
   MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &final_flag, MPI_STATUS_IGNORE);
-  if (final_flag) {
+  if (final_flag != 0) {
     RecieveData(final_flag, final_status);
   }
 
