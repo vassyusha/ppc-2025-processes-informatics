@@ -112,7 +112,7 @@ void RomanovaVDijkstraCrsMPI::MakeLocalR(std::vector<int> &local_r, double globa
 }
 
 void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, std::vector<MPI_Request> &send_requests,
-                                            int &flag, MPI_Status &status) {
+                                            int &flag, MPI_Status &status) { // NOLINT(clang-analyzer-optin.mpi.MPI-Checker)
   int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   for (int u : local_r) {
@@ -139,7 +139,7 @@ void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, std::vect
           int vertex;
         } send_data{.distance = new_dist, .vertex = glob_v};
 
-        MPI_Request req = MPI_REQUEST_NULL;  // NOLINT(clang-analyzer-optin.mpi.MPI-Checker)
+        MPI_Request req = MPI_REQUEST_NULL;
         MPI_Isend(&send_data, sizeof(SendData), MPI_BYTE, owner, 2, MPI_COMM_WORLD, &req);
         send_requests.push_back(req);
       }
