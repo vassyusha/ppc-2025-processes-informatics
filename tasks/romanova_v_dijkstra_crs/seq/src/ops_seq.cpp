@@ -2,8 +2,8 @@
 
 #include <cmath>
 #include <cstddef>
+#include <functional>
 #include <limits>
-#include <optional>
 #include <queue>
 #include <utility>
 #include <vector>
@@ -28,10 +28,11 @@ bool RomanovaVDijkstraCrsSEQ::ValidationImpl() {
   if (GetInput().source < 0 || GetInput().source >= GetInput().vertices) {
     return false;
   }
-  for (double weight : GetInput().weights) {
-    if (weight < 0) {
-      return false;
-    }
+
+  bool all_weights_valid =
+      std::all_of(GetInput().weights.begin(), GetInput().weights.end(), [](double w) { return w >= 1e-9; });
+  if (!all_weights_valid) {
+    return false;
   }
   return true;
 }

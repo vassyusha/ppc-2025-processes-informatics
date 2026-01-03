@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mpi.h>
+
 #include <vector>
 
 #include "romanova_v_dijkstra_crs/common/include/common.hpp"
@@ -24,8 +26,29 @@ class RomanovaVDijkstraCrsMPI : public BaseTask {
   void CleanUpQueues();
   void UpdateQueues(int vert);
 
+  void SetupMasterProcessData();
+  void CalculateGlobalMinInOut();
+  void BroadcastParameters();
+  void SetupLocalVertexRange(int rank);
+  void InitializeLocalArrays();
+  void SetupMinInOutArrays(int rank, int n);
+  std::vector<int> CalculateVertexSendCounts(int rank, int n);
+  std::vector<int> CalculateVertexDisplacements(int rank, int n, const std::vector<int> &vert_sendcounts);
+  void InitializeQueues();
+  void BroadcastGraphData(int rank);
+
+  void RecieveData(int &flag, MPI_Status &status);
+  void MakeLocalR(std::vector<int> &local_r, double global_l, double global_m);
+  void ProcessLocalR(std::vector<int> &local_r, std::vector<MPI_Request> &dist_requests,
+                     std::vector<MPI_Request> &vertex_requests, int &flag, MPI_Status &status);
+  bool IsGlobalStop();
+  double GetGlobalMin(MinHeap &q);
+
   Graph data_;
   std::vector<double> res_weights_;
+
+  std::vector<double> glob_min_in_;
+  std::vector<double> glob_min_out_;
 
   std::vector<double> min_in_;   // минимальный вес входящих ребер
   std::vector<double> min_out_;  // минимальный вес исходящих ребер
