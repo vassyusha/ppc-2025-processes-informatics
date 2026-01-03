@@ -146,6 +146,7 @@ void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, std::vect
     }
     RecieveData(flag, status);
   }
+  WaitRequests(send_requests);
 }
 
 bool RomanovaVDijkstraCrsMPI::IsGlobalStop() {
@@ -376,8 +377,6 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
     std::vector<MPI_Request> send_requests;
 
     ProcessLocalR(local_r, send_requests, flag, status);
-
-    WaitRequests(send_requests);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
