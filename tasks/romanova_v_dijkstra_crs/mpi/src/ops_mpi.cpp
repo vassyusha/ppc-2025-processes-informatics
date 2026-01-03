@@ -106,7 +106,7 @@ void RomanovaVDijkstraCrsMPI::DumpState() {
 
   // Синхронизация и вывод всех ранков
   MPI_Barrier(MPI_COMM_WORLD);
-  if (rank == 0) {
+  if (rank == 1) {
     std::cout << "\n=== GLOBAL STATE ===" << std::endl;
   }
   MPI_Barrier(MPI_COMM_WORLD);
@@ -577,13 +577,13 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
     if (iteration % 50 == 0) {
       int all_iterations = 0;
       MPI_Allreduce(&iteration, &all_iterations, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-      if (rank == 0 && all_iterations == iteration) {
+      if (rank == 1 && all_iterations == iteration) {
         std::cout << "All processes at iteration " << iteration << std::endl;
       }
     }
   }
 
-  if (iteration >= MAX_ITERATIONS && rank == 0) {
+  if (iteration >= MAX_ITERATIONS && rank == 1) {
     std::cerr << "\n⚠️  DEADLOCK DETECTED! Max iterations reached: " << MAX_ITERATIONS << std::endl;
     std::cerr << "Final stats - sent: " << stats_sent << ", received: " << stats_received << std::endl;
     // Принудительный дамп состояния
