@@ -2,19 +2,21 @@
 
 #include <cmath>
 #include <cstddef>
+#include <fstream>
 #include <vector>
 
 #include "romanova_v_dijkstra_crs/common/include/common.hpp"
 #include "romanova_v_dijkstra_crs/mpi/include/ops_mpi.hpp"
 #include "romanova_v_dijkstra_crs/seq/include/ops_seq.hpp"
 #include "util/include/perf_test_util.hpp"
+#include "util/include/util.hpp"
 
 namespace romanova_v_dijkstra_crs {
 
 class RomanovaVDijkstraCrsPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType, OutType> {
   void SetUp() override {
     TestType params = "perf1000000";
-    std::string abs_path = ppc::util::GetAbsoluteTaskPath(PPC_ID_romanova_v_dijkstra_crs, params);
+    TestType abs_path = ppc::util::GetAbsoluteTaskPath(PPC_ID_romanova_v_dijkstra_crs, params);
     std::ifstream file(abs_path + ".txt");
     if (file.is_open()) {
       Graph gr;
@@ -26,7 +28,6 @@ class RomanovaVDijkstraCrsPerfTestProcesses : public ppc::util::BaseRunPerfTests
       for (int i = 0; i < edg; i++) {
         file >> gr.weights[i];
       }
-      std::cout << "\nedg: ";
       for (int i = 0; i < edg; i++) {
         file >> gr.edges[i];
       }
