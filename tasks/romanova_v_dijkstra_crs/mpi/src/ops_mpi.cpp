@@ -106,8 +106,7 @@ void RomanovaVDijkstraCrsMPI::MakeLocalR(std::vector<int> &local_r, double globa
   }
 }
 
-void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, 
-                                            int &flag, MPI_Status &status) {
+void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, int &flag, MPI_Status &status) {
   int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   std::vector<MPI_Request> send_requests;
