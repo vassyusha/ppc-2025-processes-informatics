@@ -60,7 +60,7 @@ class MPIDebug {
   static int debug_rank_;
 };
 
-int MPIDebug::debug_rank_ = 0;  // По умолчанию смотрим rank 0
+int MPIDebug::debug_rank_ = 1;  // По умолчанию смотрим rank 0
 }  // namespace
 
 namespace romanova_v_dijkstra_crs {
@@ -526,7 +526,7 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
   while (!global_stop && iteration < MAX_ITERATIONS) {
     iteration++;
 
-    if (iteration % 10 == 0 && rank == 0) {
+    if (iteration % 10 == 0 && rank == 1) {
       std::cout << "\n=== Iteration " << iteration << " ===" << std::endl;
     }
 
