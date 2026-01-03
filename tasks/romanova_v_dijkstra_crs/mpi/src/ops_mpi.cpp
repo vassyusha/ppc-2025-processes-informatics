@@ -112,7 +112,7 @@ void RomanovaVDijkstraCrsMPI::MakeLocalR(std::vector<int> &local_r, double globa
 }
 
 void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, std::vector<MPI_Request> &send_requests,
-                                            int &flag, MPI_Status &status) { // NOLINT(clang-analyzer-optin.mpi.MPI-Checker)
+                                            int &flag, MPI_Status &status) {
   int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   for (int u : local_r) {
@@ -141,6 +141,7 @@ void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, std::vect
 
         MPI_Request req = MPI_REQUEST_NULL;
         MPI_Isend(&send_data, sizeof(SendData), MPI_BYTE, owner, 2, MPI_COMM_WORLD, &req);
+        // NOLINTNEXTLINE(clang-analyzer-optin.mpi.MPI-Checker)
         send_requests.push_back(req);
       }
     }
