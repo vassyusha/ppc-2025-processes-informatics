@@ -3,15 +3,122 @@
 #include <mpi.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <iostream>
 #include <limits>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include "romanova_v_dijkstra_crs/common/include/common.hpp"
 
+namespace {
+class MPIDebug {
+ public:
+  MPIDebug(const std::string &func_name) : func_name_(func_name) {
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
+    start_time_ = std::chrono::steady_clock::now();
+
+    if (rank_ == debug_rank_) {
+      std::stringstream ss;
+      ss << "[" << rank_ << "][" << func_name_ << "] ENTER" << std::endl;
+      std::cout << ss.str() << std::flush;
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+
+  ~MPIDebug() {
+    MPI_Barrier(MPI_COMM_WORLD);
+    auto end_time = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time_);
+
+    if (rank_ == debug_rank_) {
+      std::stringstream ss;
+      ss << "[" << rank_ << "][" << func_name_ << "] EXIT (" << duration.count() << "ms)" << std::endl;
+      std::cout << ss.str() << std::flush;
+    }
+  }
+
+  void log(const std::string &message) {
+    if (rank_ == debug_rank_) {
+      std::stringstream ss;
+      ss << "[" << rank_ << "][" << func_name_ << "] " << message << std::endl;
+      std::cout << ss.str() << std::flush;
+    }
+  }
+
+  static void set_debug_rank(int rank) {
+    debug_rank_ = rank;
+  }
+
+ private:
+  std::string func_name_;
+  int rank_;
+  std::chrono::steady_clock::time_point start_time_;
+  static int debug_rank_;
+};
+
+int MPIDebug::debug_rank_ = 0;  // По умолчанию смотрим rank 0
+}  // namespace
+
 namespace romanova_v_dijkstra_crs {
+
+void RomanovaVDijkstraCrsMPI::DumpState() {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  int n;
+  MPI_Comm_size(MPI_COMM_WORLD, &n);
+
+  std::stringstream ss;
+  ss << "\n=== STATE DUMP Rank " << rank << " ===" << std::endl;
+  ss << "Local vertices: " << st_vert_ << "-" << (en_vert_ - 1) << " (n=" << local_n_ << ")" << std::endl;
+  ss << "Queues: qd=" << qd_.size() << ", qin=" << qin_.size() << ", qout=" << qout_.size() << std::endl;
+
+  // Проверка сообщений
+  int pending = 0;
+  MPI_Status status;
+  MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &pending, &status);
+  ss << "Pending messages: " << pending << std::endl;
+
+  // Локальные расстояния (первые 5)
+  ss << "Local distances (first 5): ";
+  for (int i = 0; i < std::min(5, local_n_); i++) {
+    ss << "v" << (st_vert_ + i) << "=" << local_d_[i] << " ";
+  }
+  ss << std::endl;
+
+  // Статус вершин (первые 5)
+  ss << "Vertex status (first 5): ";
+  for (int i = 0; i < std::min(5, local_n_); i++) {
+    ss << "v" << (st_vert_ + i) << ":";
+    ss << (visited_[i] ? "V" : "-");
+    ss << (in_s_[i] ? "S" : "-");
+    ss << (in_qd_[i] ? "D" : "-");
+    ss << (in_qin_[i] ? "I" : "-");
+    ss << (in_qout_[i] ? "O" : "-");
+    ss << " ";
+  }
+  ss << std::endl;
+
+  std::cout << ss.str() << std::flush;
+
+  // Синхронизация и вывод всех ранков
+  MPI_Barrier(MPI_COMM_WORLD);
+  if (rank == 0) {
+    std::cout << "\n=== GLOBAL STATE ===" << std::endl;
+  }
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // Поочередный вывод каждого ранка
+  for (int r = 0; r < n; r++) {
+    if (rank == r) {
+      std::cout << ss.str();
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+}
 
 void RomanovaVDijkstraCrsMPI::RemoveFromQueues(int vert) {
   in_qd_[vert] = false;
@@ -147,30 +254,38 @@ void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, int &flag
 }
 
 bool RomanovaVDijkstraCrsMPI::IsGlobalStop() {
+  MPIDebug dbg(__func__);
+
   int local_has_work = (!qd_.empty() || !qin_.empty() || !qout_.empty()) ? 1 : 0;
+  dbg.log("local_has_work: " + std::to_string(local_has_work) + " (qd: " + std::to_string(qd_.size()) +
+          ", qin: " + std::to_string(qin_.size()) + ", qout: " + std::to_string(qout_.size()) + ")");
 
   int has_pending_msgs = 0;
   MPI_Status temp_status;
   MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &has_pending_msgs, &temp_status);
 
-  while (has_pending_msgs != 0) {
+  dbg.log("has_pending_msgs: " + std::to_string(has_pending_msgs));
+
+  int global_has_pending = 0;
+  MPI_Allreduce(&has_pending_msgs, &global_has_pending, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+
+  dbg.log("global_has_pending: " + std::to_string(global_has_pending));
+
+  if (global_has_pending != 0 && local_has_work == 0) {
+    dbg.log("Receiving pending messages...");
     RecieveData(has_pending_msgs, temp_status);
     local_has_work = (!qd_.empty() || !qin_.empty() || !qout_.empty()) ? 1 : 0;
-    MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &has_pending_msgs, &temp_status);
+    dbg.log("After receive - local_has_work: " + std::to_string(local_has_work));
   }
 
   int global_has_work = 0;
   MPI_Allreduce(&local_has_work, &global_has_work, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 
-  int global_has_pending = 0;
-  MPI_Allreduce(&has_pending_msgs, &global_has_pending, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+  bool stop = (global_has_work == 0 && global_has_pending == 0);
+  dbg.log("STOP DECISION: global_has_work=" + std::to_string(global_has_work) + ", global_has_pending=" +
+          std::to_string(global_has_pending) + " => " + std::string(stop ? "STOP" : "CONTINUE"));
 
-  if (global_has_work == 0 && global_has_pending == 0) {
-    MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &has_pending_msgs, &temp_status);
-    return (has_pending_msgs == 0);
-  }
-
-  return false;
+  return stop;
 }
 
 double RomanovaVDijkstraCrsMPI::GetGlobalMin(MinHeap &q) {
@@ -353,38 +468,90 @@ void RomanovaVDijkstraCrsMPI::InitializeSource() {
 }
 
 bool RomanovaVDijkstraCrsMPI::RunImpl() {
+  MPIDebug::set_debug_rank(0);  // Следим за rank 0
+  MPIDebug dbg(__func__);
+
   int rank = 0;
   int n = 0;
-
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n);
+
+  dbg.log("Starting with rank " + std::to_string(rank) + "/" + std::to_string(n));
+  dbg.log("Local vertices: " + std::to_string(local_n_) + " [" + std::to_string(st_vert_) + "-" +
+          std::to_string(en_vert_ - 1) + "]");
 
   InitializeSource();
 
   bool global_stop = false;
+  int iteration = 0;
+  const int MAX_ITERATIONS = 1000;
+  int stats_sent = 0, stats_received = 0;
 
-  while (!global_stop) {
+  while (!global_stop && iteration < MAX_ITERATIONS) {
+    iteration++;
+
+    if (iteration % 10 == 0 && rank == 0) {
+      std::cout << "\n=== Iteration " << iteration << " ===" << std::endl;
+    }
+
+    MPIDebug iter_dbg("Iteration" + std::to_string(iteration));
     MPI_Status status;
     int flag = 0;
 
+    // Мониторинг очередей
+    iter_dbg.log("Queues before receive - qd: " + std::to_string(qd_.size()) + ", qin: " + std::to_string(qin_.size()) +
+                 ", qout: " + std::to_string(qout_.size()));
+
     RecieveData(flag, status);
+    if (flag) {
+      stats_received++;
+    }
 
     double global_l = GetGlobalMin(qout_);
     double global_m = GetGlobalMin(qd_);
 
+    iter_dbg.log("Global mins: L=" + std::to_string(global_l) + ", M=" + std::to_string(global_m));
+
     std::vector<int> local_r;
     MakeLocalR(local_r, global_l, global_m);
+
+    iter_dbg.log("local_r size: " + std::to_string(local_r.size()));
 
     for (int v : local_r) {
       RemoveFromQueues(v);
     }
 
-    ProcessLocalR(local_r, flag, status);
+    if (!local_r.empty()) {
+      ProcessLocalR(local_r, flag, status);
+      stats_sent += local_r.size();
+    }
 
-    CleanUpQueues();
     MPI_Barrier(MPI_COMM_WORLD);
 
+    iter_dbg.log("After barrier - sent: " + std::to_string(stats_sent) +
+                 ", received: " + std::to_string(stats_received));
+
+    CleanUpQueues();
+
     global_stop = IsGlobalStop();
+
+    iter_dbg.log("global_stop: " + std::string(global_stop ? "true" : "false"));
+
+    // Аварийный выход при дедлоке
+    if (iteration % 50 == 0) {
+      int all_iterations = 0;
+      MPI_Allreduce(&iteration, &all_iterations, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+      if (rank == 0 && all_iterations == iteration) {
+        std::cout << "All processes at iteration " << iteration << std::endl;
+      }
+    }
+  }
+
+  if (iteration >= MAX_ITERATIONS && rank == 0) {
+    std::cerr << "\n⚠️  DEADLOCK DETECTED! Max iterations reached: " << MAX_ITERATIONS << std::endl;
+    std::cerr << "Final stats - sent: " << stats_sent << ", received: " << stats_received << std::endl;
+    // Принудительный дамп состояния
+    DumpState();
   }
 
   MPI_Status final_status;

@@ -45,6 +45,8 @@ class RomanovaVDijkstraCrsMPI : public BaseTask {
   bool IsGlobalStop();
   static double GetGlobalMin(MinHeap &q);
 
+  void DumpState();
+
   Graph data_;
   std::vector<double> res_weights_;
 
