@@ -128,7 +128,7 @@ void RomanovaVDijkstraCrsMPI::RemoveFromQueues(int vert) {
 
 void RomanovaVDijkstraCrsMPI::CleanUpQueues() {
   MinHeap new_qd, new_qin, new_qout;
-  
+
   // qd_
   while (!qd_.empty()) {
     auto item = qd_.top();
@@ -138,7 +138,7 @@ void RomanovaVDijkstraCrsMPI::CleanUpQueues() {
     }
   }
   qd_.swap(new_qd);
-  
+
   // qin_
   while (!qin_.empty()) {
     auto item = qin_.top();
@@ -148,7 +148,7 @@ void RomanovaVDijkstraCrsMPI::CleanUpQueues() {
     }
   }
   qin_.swap(new_qin);
-  
+
   // qout_
   while (!qout_.empty()) {
     auto item = qout_.top();
