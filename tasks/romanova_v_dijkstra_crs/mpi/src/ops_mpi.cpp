@@ -22,7 +22,7 @@ void RomanovaVDijkstraCrsMPI::RemoveFromQueues(int vert) {
 void RomanovaVDijkstraCrsMPI::CleanUpQueues() {
   while (!qd_.empty()) {
     auto item = qd_.top();
-    if (in_qd_[item.second]) {
+    if (!in_s_[item.second]) {
       break;
     }
     qd_.pop();
@@ -30,7 +30,7 @@ void RomanovaVDijkstraCrsMPI::CleanUpQueues() {
 
   while (!qin_.empty()) {
     auto item = qin_.top();
-    if (in_qin_[item.second]) {
+    if (!in_s_[item.second]) {
       break;
     }
     qin_.pop();
@@ -38,7 +38,7 @@ void RomanovaVDijkstraCrsMPI::CleanUpQueues() {
 
   while (!qout_.empty()) {
     auto item = qout_.top();
-    if (in_qout_[item.second]) {
+    if (!in_s_[item.second]) {
       break;
     }
     qout_.pop();
@@ -46,20 +46,14 @@ void RomanovaVDijkstraCrsMPI::CleanUpQueues() {
 }
 
 void RomanovaVDijkstraCrsMPI::UpdateQueues(int vert) {
-  if (!in_qd_[vert]) {
     qd_.emplace(local_d_[vert], vert);
     in_qd_[vert] = true;
-  }
 
-  if (!in_qin_[vert]) {
     qin_.emplace(local_d_[vert] - min_in_[vert], vert);
     in_qin_[vert] = true;
-  }
 
-  if (!in_qout_[vert]) {
     qout_.emplace(local_d_[vert] + min_out_[vert], vert);
     in_qout_[vert] = true;
-  }
 }
 
 void RomanovaVDijkstraCrsMPI::RecieveData(int &flag, MPI_Status &status) {
@@ -93,14 +87,13 @@ void RomanovaVDijkstraCrsMPI::WaitRequests(std::vector<MPI_Request> &send_reques
 
 void RomanovaVDijkstraCrsMPI::MakeLocalR(std::vector<int> &local_r, double global_l, double global_m) {
   for (int i = 0; i < local_n_; i++) {
-    if (!visited_[i] && !in_s_[i]) {
-      bool cond1 = (local_d_[i] <= global_l);
-      bool cond2 = (local_d_[i] - min_in_[i] <= global_m);
+    if (!in_s_[i]) {
+      bool cond1 = (local_d_[i] <= global_l + 1e-9);
+      bool cond2 = (local_d_[i] - min_in_[i] <= global_m + 1e-9);
 
       if (cond1 || cond2) {
         local_r.push_back(i);
         in_s_[i] = true;
-        visited_[i] = true;
       }
     }
   }
