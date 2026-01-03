@@ -22,7 +22,7 @@ void RomanovaVDijkstraCrsMPI::RemoveFromQueues(int vert) {
 void RomanovaVDijkstraCrsMPI::CleanUpQueues() {
   while (!qd_.empty()) {
     auto item = qd_.top();
-    if (in_qd_[item.second]) {
+    if (!in_s_[item.second]) {
       break;
     }
     qd_.pop();
@@ -30,7 +30,7 @@ void RomanovaVDijkstraCrsMPI::CleanUpQueues() {
 
   while (!qin_.empty()) {
     auto item = qin_.top();
-    if (in_qin_[item.second]) {
+    if (!in_s_[item.second]) {
       break;
     }
     qin_.pop();
@@ -38,11 +38,12 @@ void RomanovaVDijkstraCrsMPI::CleanUpQueues() {
 
   while (!qout_.empty()) {
     auto item = qout_.top();
-    if (in_qout_[item.second]) {
+    if (!in_s_[item.second]) {
       break;
     }
     qout_.pop();
   }
+  std::cout << "onClean: qsizes: " << qd_.size() << " " << qin_.size() << " " << qout_.size() << "\n";
 }
 
 void RomanovaVDijkstraCrsMPI::UpdateQueues(int vert) {
@@ -60,6 +61,7 @@ void RomanovaVDijkstraCrsMPI::UpdateQueues(int vert) {
     qout_.emplace(local_d_[vert] + min_out_[vert], vert);
     in_qout_[vert] = true;
   }
+  std::cout << "onUpdate: qsizes: " << qd_.size() << " " << qin_.size() << " " << qout_.size() << "\n";
 }
 
 void RomanovaVDijkstraCrsMPI::RecieveData(int &flag, MPI_Status &status) {
@@ -71,9 +73,13 @@ void RomanovaVDijkstraCrsMPI::RecieveData(int &flag, MPI_Status &status) {
       int vertex;
     } recieved_data{};
 
+    int rank = 0;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
     MPI_Recv(&recieved_data, sizeof(SendData), MPI_BYTE, status.MPI_SOURCE, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     double new_dist = recieved_data.distance;
     int glob_v = recieved_data.vertex;
+    std::cout << rank << ": recieved data: " << new_dist << " " << glob_v << "\n";
     if (st_vert_ <= glob_v && glob_v < en_vert_) {
       if (new_dist < local_d_[glob_v - st_vert_]) {
         local_d_[glob_v - st_vert_] = new_dist;
@@ -93,14 +99,14 @@ void RomanovaVDijkstraCrsMPI::WaitRequests(std::vector<MPI_Request> &send_reques
 
 void RomanovaVDijkstraCrsMPI::MakeLocalR(std::vector<int> &local_r, double global_l, double global_m) {
   for (int i = 0; i < local_n_; i++) {
-    if (!visited_[i] && !in_s_[i]) {
+    if (!in_s_[i]) {
       bool cond1 = (local_d_[i] <= global_l);
       bool cond2 = (local_d_[i] - min_in_[i] <= global_m);
 
       if (cond1 || cond2) {
+        std::cout << "new in_s_: " << i << "\n";
         local_r.push_back(i);
         in_s_[i] = true;
-        visited_[i] = true;
       }
     }
   }
@@ -127,6 +133,11 @@ void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, int &flag
       if (owner == rank) {
         if (new_dist < local_d_[glob_v - st_vert_]) {
           local_d_[glob_v - st_vert_] = new_dist;
+          std::cout << "new local_d_: ";
+          for (int i = 0; i < local_n_; i++) {
+            std::cout << local_d_[i] << " ";
+          }
+          std::cout << "\n";
           UpdateQueues(glob_v - st_vert_);
         }
       } else {
@@ -138,6 +149,7 @@ void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, int &flag
         MPI_Request req = MPI_REQUEST_NULL;
         MPI_Isend(&send_data, sizeof(SendData), MPI_BYTE, owner, 2, MPI_COMM_WORLD, &req);
         send_requests.push_back(req);
+        std::cout << "sended to " << owner << ": " << new_dist << " " << glob_v << "\n";
       }
     }
     // NOLINTEND(clang-analyzer-optin.mpi.MPI-Checker)
@@ -156,6 +168,7 @@ std::vector<int> RomanovaVDijkstraCrsMPI::IsGlobalStop() {
   while (has_pending_msgs != 0) {
     RecieveData(has_pending_msgs, temp_status);
     local_has_work = (!qd_.empty() || !qin_.empty() || !qout_.empty()) ? 1 : 0;
+    std::cout << "in glob_stop: qsizes: " << qd_.size() << " " << qin_.size() << " " << qout_.size() << "\n";
     MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &has_pending_msgs, &temp_status);
   }
 
@@ -375,19 +388,19 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
     MPI_Barrier(MPI_COMM_WORLD);
 
     std::vector<int> stop = IsGlobalStop();
-      int global_has_work = 0;
-  MPI_Allreduce(&stop[0], &global_has_work, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+    int global_has_work = 0;
+    MPI_Allreduce(&stop[0], &global_has_work, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 
-  int global_has_pending = 0;
-  MPI_Allreduce(&stop[1], &global_has_pending, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+    int global_has_pending = 0;
+    MPI_Allreduce(&stop[1], &global_has_pending, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 
-  MPI_Status temp_status;
-  if (global_has_work == 0 && global_has_pending == 0) {
-    MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &stop[1], &temp_status);
-    global_stop = (stop[1] == 0);
-  }
+    MPI_Status temp_status;
+    if (global_has_work == 0 && global_has_pending == 0) {
+      MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &stop[1], &temp_status);
+      global_stop = (stop[1] == 0);
+    }
 
-    //global_stop = IsGlobalStop();
+    // global_stop = IsGlobalStop();
   }
 
   MPI_Status final_status;
