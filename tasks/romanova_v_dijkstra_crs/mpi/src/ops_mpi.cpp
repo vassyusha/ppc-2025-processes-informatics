@@ -400,7 +400,7 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
     MPI_Status status;
     int flag = 0;
 
-    // RecieveData(flag, status);
+    RecieveData(flag, status);
 
     double global_l = GetGlobalMin(qout_);
     double global_m = GetGlobalMin(qd_);
