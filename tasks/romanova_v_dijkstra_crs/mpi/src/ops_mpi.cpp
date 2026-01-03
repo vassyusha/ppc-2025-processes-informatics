@@ -69,7 +69,7 @@ void RomanovaVDijkstraCrsMPI::RecieveData(int &flag, MPI_Status &status) {
     struct SendData {
       double distance;
       int vertex;
-    } recieved_data;
+    } recieved_data{};
 
     // double new_dist = 0.0;
     // int glob_v = 0;
@@ -137,9 +137,9 @@ void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, std::vect
         struct SendData {
           double distance;
           int vertex;
-        } send_data{new_dist, glob_v};
+        } send_data{.distance = new_dist, .vertex = glob_v};
 
-        MPI_Request req;
+        MPI_Request req = MPI_REQUEST_NULL;  // NOLINT(clang-analyzer-optin.mpi.MPI-Checker)
         MPI_Isend(&send_data, sizeof(SendData), MPI_BYTE, owner, 2, MPI_COMM_WORLD, &req);
         send_requests.push_back(req);
       }

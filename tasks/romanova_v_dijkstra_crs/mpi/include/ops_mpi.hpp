@@ -32,7 +32,7 @@ class RomanovaVDijkstraCrsMPI : public BaseTask {
   void SetupLocalVertexRange(int rank);
   void InitializeLocalArrays();
   void SetupMinInOutArrays(int rank, int n);
-  std::vector<int> CalculateVertexSendCounts(int rank, int n) const;
+  [[nodiscard]] std::vector<int> CalculateVertexSendCounts(int rank, int n) const;
   static std::vector<int> CalculateVertexDisplacements(int rank, int n, const std::vector<int> &vert_sendcounts);
   void InitializeQueues();
   void BroadcastGraphData(int rank);
