@@ -504,7 +504,7 @@ void RomanovaVDijkstraCrsMPI::InitializeSource() {
 }
 
 bool RomanovaVDijkstraCrsMPI::RunImpl() {
-  MPIDebug::set_debug_rank(0);  // Следим за rank 0
+  MPIDebug::set_debug_rank(1);  // Следим за rank 0
   MPIDebug dbg(__func__);
 
   int rank = 0;
