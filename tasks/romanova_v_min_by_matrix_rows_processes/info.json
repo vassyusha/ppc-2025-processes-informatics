@@ -1,7 +1,12 @@
 {
   "student": {
+<<<<<<< HEAD
     "first_name": "Василиса",
     "last_name": "Романова",
+=======
+    "first_name": "Романова",
+    "last_name": "Василиса",
+>>>>>>> 87e82c87eecb211dfee714264e594d59652119ee
     "middle_name": "Дмитриевна",
     "group_number": "3823Б1ФИ3",
     "task_number": "1"

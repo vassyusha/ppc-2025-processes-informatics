@@ -1,7 +1,12 @@
 {
   "tasks_type": "processes",
   "tasks": {
+<<<<<<< HEAD
     "mpi": "enabled",
     "seq": "enabled"
+=======
+    "mpi": "disabled",
+    "seq": "disabled"
+>>>>>>> 87e82c87eecb211dfee714264e594d59652119ee
   }
 }
