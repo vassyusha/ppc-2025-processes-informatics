@@ -42,7 +42,7 @@ class RomanovaVDijkstraCrsMPI : public BaseTask {
   static void WaitRequests(std::vector<MPI_Request> &send_requests);
   void MakeLocalR(std::vector<int> &local_r, double global_l, double global_m);
   void ProcessLocalR(std::vector<int> &local_r, int &flag, MPI_Status &status);
-  bool IsGlobalStop();
+  std::vector<int> IsGlobalStop();
   static double GetGlobalMin(MinHeap &q);
 
   Graph data_;

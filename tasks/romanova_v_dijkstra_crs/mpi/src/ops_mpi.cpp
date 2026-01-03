@@ -146,7 +146,7 @@ void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, int &flag
   WaitRequests(send_requests);
 }
 
-bool RomanovaVDijkstraCrsMPI::IsGlobalStop() {
+std::vector<int> RomanovaVDijkstraCrsMPI::IsGlobalStop() {
   int local_has_work = (!qd_.empty() || !qin_.empty() || !qout_.empty()) ? 1 : 0;
 
   int has_pending_msgs = 0;
@@ -159,18 +159,8 @@ bool RomanovaVDijkstraCrsMPI::IsGlobalStop() {
     MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &has_pending_msgs, &temp_status);
   }
 
-  int global_has_work = 0;
-  MPI_Allreduce(&local_has_work, &global_has_work, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
-
-  int global_has_pending = 0;
-  MPI_Allreduce(&has_pending_msgs, &global_has_pending, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
-
-  if (global_has_work == 0 && global_has_pending == 0) {
-    MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &has_pending_msgs, &temp_status);
-    return (has_pending_msgs == 0);
-  }
-
-  return false;
+  std::vector<int> status = {local_has_work, has_pending_msgs};
+  return status;
 }
 
 double RomanovaVDijkstraCrsMPI::GetGlobalMin(MinHeap &q) {
@@ -384,7 +374,20 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
     CleanUpQueues();
     MPI_Barrier(MPI_COMM_WORLD);
 
-    global_stop = IsGlobalStop();
+    std::vector<int> stop = IsGlobalStop();
+      int global_has_work = 0;
+  MPI_Allreduce(&stop[0], &global_has_work, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+
+  int global_has_pending = 0;
+  MPI_Allreduce(&stop[1], &global_has_pending, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+
+  MPI_Status temp_status;
+  if (global_has_work == 0 && global_has_pending == 0) {
+    MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &stop[1], &temp_status);
+    global_stop = (stop[1] == 0);
+  }
+
+    //global_stop = IsGlobalStop();
   }
 
   MPI_Status final_status;
