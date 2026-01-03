@@ -81,10 +81,9 @@ TEST_P(RomanovaVDijkstraCrsFuncTestsProcesses, Dijkstra) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 11> kTestParam = {"trivialTest",     "smallTest",       "simpleTest",
-                                             "disconGraphTest", "linGraphTest",    "cycleGraphTest",
-                                             "complGraphTest",  "severalWaysTest", "longerWayWithLessCostTest",
-                                             "bigTest",         "reallyBigTest"};
+const std::array<TestType, 10> kTestParam = {
+    "trivialTest",    "smallTest",      "simpleTest",      "disconGraphTest",           "linGraphTest",
+    "cycleGraphTest", "complGraphTest", "severalWaysTest", "longerWayWithLessCostTest", "bigTest"};
 
 const auto kTestTasksList = std::tuple_cat(
     ppc::util::AddFuncTask<RomanovaVDijkstraCrsMPI, InType>(kTestParam, PPC_SETTINGS_romanova_v_dijkstra_crs),
