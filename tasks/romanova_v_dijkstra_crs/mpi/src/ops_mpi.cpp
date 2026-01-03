@@ -127,29 +127,37 @@ void RomanovaVDijkstraCrsMPI::RemoveFromQueues(int vert) {
 }
 
 void RomanovaVDijkstraCrsMPI::CleanUpQueues() {
+  MinHeap new_qd, new_qin, new_qout;
+  
+  // qd_
   while (!qd_.empty()) {
     auto item = qd_.top();
-    if (in_qd_[item.second]) {
-      break;
-    }
     qd_.pop();
+    if (in_qd_[item.second]) {
+      new_qd.push(item);
+    }
   }
-
+  qd_.swap(new_qd);
+  
+  // qin_
   while (!qin_.empty()) {
     auto item = qin_.top();
-    if (in_qin_[item.second]) {
-      break;
-    }
     qin_.pop();
+    if (in_qin_[item.second]) {
+      new_qin.push(item);
+    }
   }
-
+  qin_.swap(new_qin);
+  
+  // qout_
   while (!qout_.empty()) {
     auto item = qout_.top();
-    if (in_qout_[item.second]) {
-      break;
-    }
     qout_.pop();
+    if (in_qout_[item.second]) {
+      new_qout.push(item);
+    }
   }
+  qout_.swap(new_qout);
 }
 
 void RomanovaVDijkstraCrsMPI::UpdateQueues(int vert) {
