@@ -26,6 +26,7 @@ void RomanovaVDijkstraCrsMPI::CleanUpQueues() {
       break;
     }
     qd_.pop();
+    in_qd_[item.second] = false;
   }
 
   while (!qin_.empty()) {
@@ -34,6 +35,7 @@ void RomanovaVDijkstraCrsMPI::CleanUpQueues() {
       break;
     }
     qin_.pop();
+    in_qin_[item.second] = false;
   }
 
   while (!qout_.empty()) {
@@ -42,18 +44,19 @@ void RomanovaVDijkstraCrsMPI::CleanUpQueues() {
       break;
     }
     qout_.pop();
+    in_qout_[item.second] = false;
   }
 }
 
 void RomanovaVDijkstraCrsMPI::UpdateQueues(int vert) {
-    qd_.emplace(local_d_[vert], vert);
-    in_qd_[vert] = true;
+  qd_.emplace(local_d_[vert], vert);
+  in_qd_[vert] = true;
 
-    qin_.emplace(local_d_[vert] - min_in_[vert], vert);
-    in_qin_[vert] = true;
+  qin_.emplace(local_d_[vert] - min_in_[vert], vert);
+  in_qin_[vert] = true;
 
-    qout_.emplace(local_d_[vert] + min_out_[vert], vert);
-    in_qout_[vert] = true;
+  qout_.emplace(local_d_[vert] + min_out_[vert], vert);
+  in_qout_[vert] = true;
 }
 
 void RomanovaVDijkstraCrsMPI::RecieveData(int &flag, MPI_Status &status) {
@@ -64,6 +67,9 @@ void RomanovaVDijkstraCrsMPI::RecieveData(int &flag, MPI_Status &status) {
       double distance;
       int vertex;
     } recieved_data{};
+
+    int rank = 0;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     MPI_Recv(&recieved_data, sizeof(SendData), MPI_BYTE, status.MPI_SOURCE, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     double new_dist = recieved_data.distance;
@@ -368,19 +374,19 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
     MPI_Barrier(MPI_COMM_WORLD);
 
     std::vector<int> stop = IsGlobalStop();
-      int global_has_work = 0;
-  MPI_Allreduce(stop.data(), &global_has_work, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+    int global_has_work = 0;
+    MPI_Allreduce(&stop[0], &global_has_work, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 
-  int global_has_pending = 0;
-  MPI_Allreduce(&stop[1], &global_has_pending, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+    int global_has_pending = 0;
+    MPI_Allreduce(&stop[1], &global_has_pending, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 
-  MPI_Status temp_status;
-  if (global_has_work == 0 && global_has_pending == 0) {
-    MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &stop[1], &temp_status);
-    global_stop = (stop[1] == 0);
-  }
+    MPI_Status temp_status;
+    if (global_has_work == 0 && global_has_pending == 0) {
+      MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &stop[1], &temp_status);
+      global_stop = (stop[1] == 0);
+    }
 
-    //global_stop = IsGlobalStop();
+    // global_stop = IsGlobalStop();
   }
 
   MPI_Status final_status;
