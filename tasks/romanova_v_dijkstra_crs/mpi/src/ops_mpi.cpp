@@ -375,7 +375,7 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
 
     std::vector<int> stop = IsGlobalStop();
     int global_has_work = 0;
-    MPI_Allreduce(&stop[0], &global_has_work, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+    MPI_Allreduce(&stop.data(), &global_has_work, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 
     int global_has_pending = 0;
     MPI_Allreduce(&stop[1], &global_has_pending, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
