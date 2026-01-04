@@ -1,0 +1,29 @@
+#pragma once
+
+#include <functional>
+#include <queue>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "task/include/task.hpp"
+
+namespace romanova_v_dijkstra_crs {
+
+struct Graph {
+  std::vector<double> weights;
+  std::vector<int> edges;
+  std::vector<int> offsets;
+
+  int vertices{};
+  int source{};
+};
+
+using MinHeap = std::priority_queue<std::pair<double, int>, std::vector<std::pair<double, int>>, std::greater<>>;
+
+using InType = Graph;
+using OutType = std::vector<double>;
+using TestType = std::string;
+using BaseTask = ppc::task::Task<InType, OutType>;
+
+}  // namespace romanova_v_dijkstra_crs
