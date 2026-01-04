@@ -46,17 +46,26 @@ void RomanovaVDijkstraCrsMPI::CleanUpQueues() {
     qout_.pop();
     in_qout_[item.second] = false;
   }
+  // std::cout << "onClean: qsizes: " << qd_.size() << " " << qin_.size() << " " << qout_.size() << "\n";
 }
 
 void RomanovaVDijkstraCrsMPI::UpdateQueues(int vert) {
+  // if (!in_qd_[vert]) {
   qd_.emplace(local_d_[vert], vert);
   in_qd_[vert] = true;
+  //}
 
+  // if (!in_qin_[vert]) {
   qin_.emplace(local_d_[vert] - min_in_[vert], vert);
   in_qin_[vert] = true;
+  //}
 
+  // if (!in_qout_[vert]) {
   qout_.emplace(local_d_[vert] + min_out_[vert], vert);
   in_qout_[vert] = true;
+  //}
+  ////std::cout << vert << " " << local_d_[vert] + min_out_[vert] << " minout: " << min_out_[vert] << "\n";
+  ////std::cout << "onUpdate: qsizes: " << qd_.size() << " " << qin_.size() << " " << qout_.size() << "\n";
 }
 
 void RomanovaVDijkstraCrsMPI::RecieveData(int &flag, MPI_Status &status) {
@@ -74,6 +83,7 @@ void RomanovaVDijkstraCrsMPI::RecieveData(int &flag, MPI_Status &status) {
     MPI_Recv(&recieved_data, sizeof(SendData), MPI_BYTE, status.MPI_SOURCE, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     double new_dist = recieved_data.distance;
     int glob_v = recieved_data.vertex;
+    ////std::cout << rank << ": recieved data: " << new_dist << " " << glob_v << "\n";
     if (st_vert_ <= glob_v && glob_v < en_vert_) {
       if (new_dist < local_d_[glob_v - st_vert_]) {
         local_d_[glob_v - st_vert_] = new_dist;
@@ -92,12 +102,30 @@ void RomanovaVDijkstraCrsMPI::WaitRequests(std::vector<MPI_Request> &send_reques
 }
 
 void RomanovaVDijkstraCrsMPI::MakeLocalR(std::vector<int> &local_r, double global_l, double global_m) {
+  //  int debug_vertex = 7;
+  // if (st_vert_ <= debug_vertex && debug_vertex < en_vert_) {
+  //   int local_v = debug_vertex - st_vert_;
+  //   if (!in_s_[local_v]) {
+  //     double d = local_d_[local_v];
+  //     double min_in_val = min_in_[local_v];
+  //     // //std::cout << "DEBUG VERTEX 7: d=" << d
+  //     //           << ", min_in=" << min_in_val
+  //     //           << ", global_l=" << global_l
+  //     //           << ", global_m=" << global_m
+  //     //           << ", cond1=" << (d <= global_l + 1e-9)
+  //     //           << ", cond2=" << (d <= global_m + min_in_val + 1e-9)
+  //     //           << ", in_s=" << in_s_[local_v] << std::endl;
+  //   }
+  // }
+
   for (int i = 0; i < local_n_; i++) {
     if (!in_s_[i]) {
       bool cond1 = (local_d_[i] <= global_l + 1e-9);
       bool cond2 = (local_d_[i] - min_in_[i] <= global_m + 1e-9);
+      // std::cout << "conditions: " << i << " " << local_d_[i] << " " << global_l << " " << global_m << "\n";
 
       if (cond1 || cond2) {
+        // std::cout << "new in_s_: " << i << "\n";
         local_r.push_back(i);
         in_s_[i] = true;
       }
@@ -126,6 +154,12 @@ void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, int &flag
       if (owner == rank) {
         if (new_dist < local_d_[glob_v - st_vert_]) {
           local_d_[glob_v - st_vert_] = new_dist;
+          // std::cout << "added " << glob_v << "\n";
+          // std::cout << "new local_d_: ";
+          //  for (int i = 0; i < local_n_; i++) {
+          //    //std::cout << local_d_[i] << " ";
+          //  }
+          // std::cout << "\n";
           UpdateQueues(glob_v - st_vert_);
         }
       } else {
@@ -137,6 +171,7 @@ void RomanovaVDijkstraCrsMPI::ProcessLocalR(std::vector<int> &local_r, int &flag
         MPI_Request req = MPI_REQUEST_NULL;
         MPI_Isend(&send_data, sizeof(SendData), MPI_BYTE, owner, 2, MPI_COMM_WORLD, &req);
         send_requests.push_back(req);
+        // std::cout << "sended to " << owner << ": " << new_dist << " " << glob_v << "\n";
       }
     }
     // NOLINTEND(clang-analyzer-optin.mpi.MPI-Checker)
@@ -155,6 +190,7 @@ std::vector<int> RomanovaVDijkstraCrsMPI::IsGlobalStop() {
   while (has_pending_msgs != 0) {
     RecieveData(has_pending_msgs, temp_status);
     local_has_work = (!qd_.empty() || !qin_.empty() || !qout_.empty()) ? 1 : 0;
+    // std::cout << "in glob_stop: qsizes: " << qd_.size() << " " << qin_.size() << " " << qout_.size() << "\n";
     MPI_Iprobe(MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &has_pending_msgs, &temp_status);
   }
 
@@ -198,6 +234,14 @@ void RomanovaVDijkstraCrsMPI::CalculateGlobalMinInOut() {
       glob_min_in[target_vertex] = std::min(glob_min_in[target_vertex], data_.weights[j]);
     }
   }
+  // std::cout << "min_in: ";
+  //  for (int i = 0; i < vertices; i++) {
+  //    //std::cout << glob_min_in[i] << " ";
+  //  }
+  //  //std::cout << "min_out: ";
+  //  for (int i = 0; i < vertices; i++) {
+  //    //std::cout << glob_min_out[i] << " ";
+  //  }
 
   glob_min_in_ = std::move(glob_min_in);
   glob_min_out_ = std::move(glob_min_out);
@@ -375,7 +419,7 @@ bool RomanovaVDijkstraCrsMPI::RunImpl() {
 
     std::vector<int> stop = IsGlobalStop();
     int global_has_work = 0;
-    MPI_Allreduce(&stop.data(), &global_has_work, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+    MPI_Allreduce(stop.data(), &global_has_work, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 
     int global_has_pending = 0;
     MPI_Allreduce(&stop[1], &global_has_pending, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
